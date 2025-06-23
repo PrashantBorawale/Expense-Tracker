@@ -12,12 +12,15 @@ import {
   IconButton,
   Typography,
   Box,
+  Grid,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const categories = ["Food", "Travel", "Shopping", "Bills", "Others"];
-const paymentMethods = ["Cash", "Credit Card", "UPI"];
+const paymentMethods = ["Cash", "Credit Card", "UPI", "Bank-Transfer"];
+const amountTypes = ["Add", "Expense"];
 
 const UserExpenses = ({ open, onClose, onAdd }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +28,7 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
     amount: "",
     category: "",
     method: "",
+    type: "Expense", // default type
   });
 
   const handleChange = (e) => {
@@ -32,46 +36,88 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
   };
 
   const handleSubmit = async () => {
-    if (
-      !formData.desc ||
-      !formData.amount ||
-      !formData.category ||
-      !formData.method
-    )
+    const { desc, amount, category, method, type } = formData;
+
+    if (!desc || !amount || !category || !method || !type) {
+      toast.error("Please fill in all fields.");
       return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      toast.error("Authorization failed. Please login again.");
+      onClose();
+      return;
+    }
+
+    const finalAmount =
+      type === "Expense" ? -Math.abs(Number(amount)) : Math.abs(Number(amount));
 
     try {
-      const res = await axios.post("http://localhost:3000/api/expenses/add", {
-        discription: formData.desc,
-        amount: Number(formData.amount),
-        category: formData.category,
-        paymentMethod: formData.method,
-      });
+      const res = await axios.post(
+        "http://localhost:3000/api/expenses/add",
+        {
+          discription: desc,
+          amount: finalAmount,
+          category,
+          paymentMethod: method,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      onAdd(res.data.expense); // send to Dashboard
-      setFormData({ desc: "", amount: "", category: "", method: "" });
+      toast.success("Expense saved!");
+      onAdd(res.data.expense);
+      setFormData({
+        desc: "",
+        amount: "",
+        category: "",
+        method: "",
+        type: "Expense",
+      });
       onClose();
     } catch (err) {
       console.error("Error saving expense:", err);
+      toast.error("Failed to save expense. Please try again.");
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <Box className="flex items-center justify-between px-6 pt-4 pb-2">
+      {/* Header */}
+      <Box
+        sx={{
+          backgroundColor: "#E07A5F",
+          px: 4,
+          py: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Typography
           variant="h6"
-          className="text-blue-700 font-semibold w-full text-center"
+          sx={{
+            color: "white",
+            fontWeight: "bold",
+            flexGrow: 1,
+            textAlign: "center",
+          }}
         >
-          Your Expenses
+          Add New Expense
         </Typography>
-        <IconButton onClick={onClose} className="absolute right-1 top-0.5">
+        <IconButton onClick={onClose} sx={{ color: "#fff" }}>
           <CloseIcon />
         </IconButton>
       </Box>
 
-      <DialogContent className="px-6 pb-2 pt-0">
-        <div className="mb-4">
+      {/* Form Content */}
+      <DialogContent sx={{ px: 4, pt: 3 }}>
+        <Box mb={3}>
           <TextField
             label="Description"
             name="desc"
@@ -79,26 +125,46 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
             onChange={handleChange}
             fullWidth
           />
-        </div>
+        </Box>
 
-        <div className="mb-4">
-          <TextField
-            label="Amount"
-            name="amount"
-            type="number"
-            value={formData.amount}
-            onChange={handleChange}
-            fullWidth
-          />
-        </div>
+        <Grid container spacing={5} mb={3}>
+          <Grid item xs={6}>
+            <TextField
+              label="Amount"
+              name="amount"
+              type="number"
+              value={formData.amount}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                label="Type"
+              >
+                {amountTypes.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
 
-        <div className="mb-4">
+        <Box mb={3}>
           <FormControl fullWidth>
             <InputLabel>Category</InputLabel>
             <Select
               name="category"
               value={formData.category}
               onChange={handleChange}
+              label="Category"
             >
               {categories.map((cat) => (
                 <MenuItem key={cat} value={cat}>
@@ -107,15 +173,16 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
               ))}
             </Select>
           </FormControl>
-        </div>
+        </Box>
 
-        <div className="mb-4">
+        <Box mb={2}>
           <FormControl fullWidth>
             <InputLabel>Payment Method</InputLabel>
             <Select
               name="method"
               value={formData.method}
               onChange={handleChange}
+              label="Payment Method"
             >
               {paymentMethods.map((method) => (
                 <MenuItem key={method} value={method}>
@@ -124,16 +191,27 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
               ))}
             </Select>
           </FormControl>
-        </div>
+        </Box>
       </DialogContent>
 
-      <DialogActions className="px-6 pb-4 m-4">
+      {/* Footer */}
+      <DialogActions sx={{ px: 4, pb: 3 }}>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          className="bg-blue-600 text-white"
+          fullWidth
+          sx={{
+            backgroundColor: "#E07A5F",
+            color: "#fff",
+            fontWeight: "bold",
+            textTransform: "none",
+            borderRadius: 2,
+            "&:hover": {
+              backgroundColor: "#D45C47",
+            },
+          }}
         >
-          Record
+          Record Expense
         </Button>
       </DialogActions>
     </Dialog>

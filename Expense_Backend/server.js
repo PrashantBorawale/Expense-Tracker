@@ -2,6 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import { User } from "./Model/User.js";
 import { Expense } from "./Model/Expense.js";
 
@@ -19,46 +21,79 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-//Register User
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) return res.status(401).json({ message: "Token missing" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secretkey");
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(403).json({ message: "Invalid token" });
+  }
+};
+
+// Register user
 app.post("/api/user/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    let user = await User.findOne({ email });
-    if (user) return res.json({ message: "Already Exist" });
+    let existingUser = await User.findOne({ email });
+    if (existingUser) return res.json({ message: "Already Exist" });
 
-    user = await User.create({
-      name,
-      email,
-      password,
-    });
-    res.json({ message: "User Registered", user });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashedPassword });
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || "fallbackSecret",
+      { expiresIn: "1d" }
+    );
+
+    res.json({ message: "User Registered", token, user });
   } catch (err) {
-    console.error("Registration error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-//Login User
+// Login User
 app.post("/api/user/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
+
     if (!user) return res.json({ message: "User not found" });
 
-    const validPass = user.password === password;
-    if (!validPass) return res.json({ message: "Invalid password" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.json({ message: "Invalid password" });
 
-    res.json({ message: `welcome back ${user.userName}`, user });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || "fallbackSecret",
+      { expiresIn: "1d" }
+    );
+
+    res.json({ message: "Login successful", token, user });
   } catch (err) {
-    console.error("Login error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-//Add expenses
-app.post("/api/expenses/add", async (req, res) => {
+//see Expenses
+app.get("/api/customer", verifyToken, async (req, res) => {
+  try {
+    const expenses = await Expense.find({ userId: req.user.id });
+    res.json(expenses);
+  } catch (err) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+//add Expenses
+app.post("/api/expenses/add", verifyToken, async (req, res) => {
   try {
     const { discription, amount, category, paymentMethod } = req.body;
     const expense = await Expense.create({
@@ -66,62 +101,43 @@ app.post("/api/expenses/add", async (req, res) => {
       amount,
       category,
       paymentMethod,
+      userId: req.user.id,
     });
-    res.json({ message: "Expenses Added", expense });
+    res.json({ message: "Expense Added", expense });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-//viwe Expenses
-app.get("/api/customer", async (req, res) => {
+//update Expenses
+app.put("/api/expenses/:id", verifyToken, async (req, res) => {
   try {
-    const customers = await Expense.find();
-    res.json(customers);
-  } catch (err) {
-    console.error("Expenses fetch error:", err);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
-
-//Update Customer
-app.put("/api/expenses/:id", async (req, res) => {
-  try {
-    const expenseId = req.params.id;
     const { discription, amount, category, paymentMethod } = req.body;
 
-    // Validate fields (simple check)
-    if (!discription || !amount || !category || !paymentMethod) {
-      return res
-        .status(400)
-        .json({ error: "All required fields must be filled." });
-    }
-
-    // Update customer in database
-    const updatedExpenses = await Expense.findByIdAndUpdate(
-      expenseId,
+    const updated = await Expense.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
       { discription, amount, category, paymentMethod },
-      { new: true } // return updated document
+      { new: true }
     );
 
-    if (!updatedExpenses) {
-      return res.status(404).json({ error: "Expenses not found." });
-    }
+    if (!updated) return res.status(404).json({ error: "Expense not found" });
 
-    res.status(200).json(updatedExpenses);
-  } catch (error) {
-    console.error("Error updating customer:", error);
+    res.json(updated);
+  } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-//Delete Customer
-app.delete("/api/expenses/:id", async (req, res) => {
-  const _id = req.params.id;
+//delete expenses
+app.delete("/api/expenses/:id", verifyToken, async (req, res) => {
   try {
-    const deleted = await Expense.findByIdAndDelete(_id);
+    const deleted = await Expense.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
     if (!deleted) return res.status(404).json({ message: "Not found" });
+
     res.json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -130,8 +146,5 @@ app.delete("/api/expenses/:id", async (req, res) => {
 
 const port = 3000;
 app.listen(port, () =>
-  console.log(`Server is Connected to http://localhost:${port}`)
+  console.log(`Server is running on http://localhost:${port}`)
 );
-
-
-// https://github.com/PrashantBorawale/Expense-Tracker.git

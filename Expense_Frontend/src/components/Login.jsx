@@ -8,6 +8,8 @@ import {
   Typography,
   FormControlLabel,
   Checkbox,
+  CircularProgress,
+  Box,
 } from "@mui/material";
 import {
   Email as EmailIcon,
@@ -16,6 +18,8 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -27,8 +31,7 @@ const Login = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -44,8 +47,7 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -56,38 +58,55 @@ const Login = () => {
         }
       );
 
-      const { message } = response.data;
+      const { message, user, token } = response.data;
 
-      if (message === "User not found") {
-        setError("User does not exist");
-      } else if (message === "Invalid password") {
-        setError("Incorrect password");
+      if (message.toLowerCase().includes("not found")) {
+        toast.error("User does not exist");
+      } else if (message.toLowerCase().includes("invalid")) {
+        toast.error("Incorrect password");
       } else {
-        setSuccess("Login successful");
+        localStorage.setItem("token", token);
+        localStorage.setItem("userName", user?.name || "User");
+
+        toast.success(`Login successful! Welcome, ${user?.name || "User"}!`);
+
+        setFormData({ email: "", password: "", remember: false });
+
         setTimeout(() => {
           navigate("/dashboard");
         }, 1500);
       }
     } catch (err) {
-      setError("Login failed. Please try again.", err);
+      toast.error("Login failed. Please try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-white to-blue-100 px-4">
-      <Paper elevation={8} className="p-8 rounded-2xl w-full max-w-md">
-        <Typography
-          variant="h5"
-          align="center"
-          className="mb-6 font-bold text-gray-800"
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-pink-100 px-4">
+      <Paper
+        elevation={8}
+        className="p-0 rounded-2xl w-full max-w-md overflow-hidden"
+      >
+        {/* Heading with theme color */}
+        <Box
+          sx={{
+            backgroundColor: "#E07A5F",
+            py: 2,
+            textAlign: "center",
+          }}
         >
-          Login Here
-        </Typography>
+          <Typography variant="h5" sx={{ color: "#fff", fontWeight: "bold" }}>
+            Login Here
+          </Typography>
+        </Box>
 
-        <form onSubmit={handleSubmit}>
-          {/* Email Field */}
-          <div className="flex items-center my-4">
-            <EmailIcon className="mr-3 text-gray-500" />
+        {/* Form */}
+        <Box component="form" onSubmit={handleSubmit} className="p-6">
+          <div className="flex items-center mb-4">
+            <EmailIcon sx={{ color: "#E07A5F", mr: 1.5 }} />
             <TextField
               name="email"
               label="Email"
@@ -100,9 +119,8 @@ const Login = () => {
             />
           </div>
 
-          {/* Password Field */}
           <div className="flex items-center mb-4">
-            <LockIcon className="mr-3 text-gray-500" />
+            <LockIcon sx={{ color: "#E07A5F", mr: 1.5 }} />
             <TextField
               name="password"
               label="Password"
@@ -122,7 +140,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Remember Me */}
           <div className="mb-4">
             <FormControlLabel
               control={
@@ -130,47 +147,46 @@ const Login = () => {
                   checked={formData.remember}
                   onChange={handleChange}
                   name="remember"
-                  color="primary"
+                  sx={{ color: "#E07A5F" }}
                 />
               }
               label="Remember Me"
             />
           </div>
 
-          {/* Error / Success Messages */}
-          {error && (
-            <Typography className="text-red-600 text-sm mb-2">
-              {error}
-            </Typography>
-          )}
-          {success && (
-            <Typography className="text-green-600 text-sm mb-2">
-              {success}
-            </Typography>
-          )}
-
-          {/* Submit Button */}
           <Button
             type="submit"
             variant="contained"
-            size="small"
             fullWidth
-            className="bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded-lg shadow"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} /> : null}
+            sx={{
+              backgroundColor: "#E07A5F",
+              color: "#fff",
+              fontWeight: "bold",
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: "none",
+              boxShadow: 2,
+              "&:hover": {
+                backgroundColor: "#D45C47",
+              },
+            }}
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </Button>
-        </form>
 
-        {/* Redirect to Register */}
-        <div className="mt-6 text-center">
-          <span className="text-gray-700">Not a user?</span>{" "}
-          <button
-            onClick={() => navigate("/register")}
-            className="text-blue-600 hover:underline font-medium"
-          >
-            Create an account
-          </button>
-        </div>
+          <div className="mt-6 text-center">
+            <span className="text-gray-700">Not a user?</span>{" "}
+            <button
+              type="button"
+              onClick={() => navigate("/register")}
+              className="text-[#E07A5F] hover:text-[#D45C47] font-medium transition"
+            >
+              <span className="cursor-pointer">Create an account</span>
+            </button>
+          </div>
+        </Box>
       </Paper>
     </div>
   );

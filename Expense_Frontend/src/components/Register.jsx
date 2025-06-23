@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   TextField,
@@ -6,6 +6,8 @@ import {
   Button,
   Paper,
   Typography,
+  CircularProgress,
+  Box,
 } from "@mui/material";
 import {
   Person as PersonIcon,
@@ -15,6 +17,8 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -26,8 +30,16 @@ const Register = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Ensure form fields are empty when component mounts
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+    });
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,8 +51,7 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -48,32 +59,53 @@ const Register = () => {
         formData
       );
 
-      if (response.data.message === "Already Exist") {
-        setError("User already exists");
-      } else {
-        setSuccess("Registered successfully");
-        setFormData({ name: "", email: "", password: "" });
-        setTimeout(() => navigate("/login"), 1500);
-      }
+      const { token, user } = response.data;
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("userName", user.name);
+
+      toast.success("Registration successful!");
+      setFormData({ name: "", email: "", password: "" });
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setError("Something went wrong. Try again.", err);
+      if (err.response && err.response.status === 409) {
+        toast.error("User already exists");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+        console.error(err);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-pink-100 px-4">
-      <Paper elevation={8} className="p-8 rounded-2xl w-full max-w-md">
-        <Typography
-          variant="h5"
-          align="center"
-          className="mb-6 font-bold text-gray-800"
+      <Paper
+        elevation={8}
+        className="p-0 rounded-2xl w-full max-w-md overflow-hidden"
+      >
+        <Box
+          sx={{
+            backgroundColor: "#E07A5F",
+            py: 2,
+            textAlign: "center",
+          }}
         >
-          Register Here
-        </Typography>
+          <Typography
+            variant="h5"
+            sx={{
+              color: "#fff",
+              fontWeight: "bold",
+            }}
+          >
+            Register Here
+          </Typography>
+        </Box>
 
-        <form onSubmit={handleSubmit}>
-          <div className="flex items-center my-4">
-            <PersonIcon className="mr-3 text-gray-500" />
+        <Box component="form" onSubmit={handleSubmit} className="p-6">
+          <div className="flex items-center mb-4">
+            <PersonIcon sx={{ color: "#E07A5F", marginRight: "10px" }} />
             <TextField
               name="name"
               label="Full Name"
@@ -86,7 +118,7 @@ const Register = () => {
           </div>
 
           <div className="flex items-center mb-4">
-            <EmailIcon className="mr-3 text-gray-500" />
+            <EmailIcon sx={{ color: "#E07A5F", marginRight: "10px" }} />
             <TextField
               name="email"
               label="Email"
@@ -99,8 +131,8 @@ const Register = () => {
             />
           </div>
 
-          <div className="flex items-center mb-4">
-            <LockIcon className="mr-3 text-gray-500" />
+          <div className="flex items-center mb-6">
+            <LockIcon sx={{ color: "#E07A5F", marginRight: "10px" }} />
             <TextField
               name="password"
               label="Password"
@@ -120,36 +152,38 @@ const Register = () => {
             />
           </div>
 
-          {error && (
-            <Typography className="text-red-600 text-sm mb-2">
-              {error}
-            </Typography>
-          )}
-          {success && (
-            <Typography className="text-green-600 text-sm mb-2">
-              {success}
-            </Typography>
-          )}
-
           <Button
             type="submit"
             variant="contained"
             fullWidth
-            className="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg shadow"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : null}
+            sx={{
+              backgroundColor: "#E07A5F",
+              color: "#fff",
+              fontWeight: "bold",
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: "none",
+              boxShadow: 2,
+              "&:hover": {
+                backgroundColor: "#D45C47",
+              },
+            }}
           >
-            Register
+            {loading ? "Registering..." : "Register"}
           </Button>
-        </form>
 
-        <div className="mt-6 text-center">
-          <span className="text-gray-700">Already registered?</span>{" "}
-          <button
-            onClick={() => navigate("/login")}
-            className="text-blue-600 hover:underline font-medium"
-          >
-            Login
-          </button>
-        </div>
+          <div className="mt-6 text-center">
+            <span className="text-gray-700">Already registered?</span>{" "}
+            <button
+              onClick={() => navigate("/login")}
+              className="text-[#E07A5F] hover:text-[#D45C47] font-medium transition"
+            >
+              <span className="cursor-pointer">Login</span>
+            </button>
+          </div>
+        </Box>
       </Paper>
     </div>
   );

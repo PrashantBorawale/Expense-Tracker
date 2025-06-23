@@ -12,12 +12,15 @@ import {
   IconButton,
   Typography,
   Box,
+  Grid,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const categories = ["Food", "Travel", "Shopping", "Bills", "Others"];
-const paymentMethods = ["Cash", "Credit Card", "UPI"];
+const paymentMethods = ["Cash", "Credit Card", "UPI", "Bank-Transfer"];
+const amountTypes = ["Add", "Expense"];
 
 const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -25,15 +28,18 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
     amount: "",
     category: "",
     method: "",
+    type: "Expense",
   });
 
   useEffect(() => {
     if (initialData) {
+      const amt = Number(initialData.amount);
       setFormData({
         desc: initialData.discription || "",
-        amount: initialData.amount || "",
+        amount: Math.abs(amt).toString(),
         category: initialData.category || "",
         method: initialData.paymentMethod || "",
+        type: amt >= 0 ? "Add" : "Expense",
       });
     }
   }, [initialData]);
@@ -43,48 +49,85 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
   };
 
   const handleSubmit = async () => {
-    if (
-      !formData.desc ||
-      !formData.amount ||
-      !formData.category ||
-      !formData.method
-    )
+    const { desc, amount, category, method, type } = formData;
+
+    if (!desc || !amount || !category || !method || !type) {
+      toast.error("Please fill all fields.");
       return;
+    }
+
+    if (!initialData) {
+      toast.error("No expense selected.");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Not authorized. Please login again.");
+      onClose();
+      return;
+    }
+
+    const finalAmount =
+      type === "Expense" ? -Math.abs(Number(amount)) : Math.abs(Number(amount));
 
     try {
       const res = await axios.put(
         `http://localhost:3000/api/expenses/${initialData._id}`,
         {
-          discription: formData.desc,
-          amount: Number(formData.amount),
-          category: formData.category,
-          paymentMethod: formData.method,
+          discription: desc,
+          amount: finalAmount,
+          category,
+          paymentMethod: method,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
-      onUpdate(res.data); // Update parent state
+      toast.success("Expense updated!");
+      onUpdate(res.data);
       onClose();
     } catch (err) {
       console.error("Update failed:", err);
+      toast.error("Failed to update expense.");
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <Box className="flex items-center justify-between px-6 pt-4 pb-2">
+      {/* Header */}
+      <Box
+        sx={{
+          backgroundColor: "#E07A5F",
+          px: 4,
+          py: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Typography
           variant="h6"
-          className="text-blue-700 font-semibold w-full text-center"
+          sx={{
+            color: "white",
+            fontWeight: "bold",
+            flexGrow: 1,
+            textAlign: "center",
+          }}
         >
           Update Your Expenses
         </Typography>
-        <IconButton onClick={onClose} className="absolute right-1 top-0.5">
+        <IconButton onClick={onClose} sx={{ color: "#fff" }}>
           <CloseIcon />
         </IconButton>
       </Box>
 
-      <DialogContent className="px-6 pb-2 pt-0">
-        <div className="mb-4">
+      {/* Form Content */}
+      <DialogContent sx={{ px: 4, pt: 3 }}>
+        <Box mb={3}>
           <TextField
             label="Description"
             name="desc"
@@ -92,26 +135,46 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
             onChange={handleChange}
             fullWidth
           />
-        </div>
+        </Box>
 
-        <div className="mb-4">
-          <TextField
-            label="Amount"
-            name="amount"
-            type="number"
-            value={formData.amount}
-            onChange={handleChange}
-            fullWidth
-          />
-        </div>
+        <Grid container spacing={5} mb={3}>
+          <Grid item xs={6}>
+            <TextField
+              label="Amount"
+              name="amount"
+              type="number"
+              value={formData.amount}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                name="type"
+                value={formData.type}
+                onChange={handleChange}
+                label="Type"
+              >
+                {amountTypes.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
 
-        <div className="mb-4">
+        <Box mb={3}>
           <FormControl fullWidth>
             <InputLabel>Category</InputLabel>
             <Select
               name="category"
               value={formData.category}
               onChange={handleChange}
+              label="Category"
             >
               {categories.map((cat) => (
                 <MenuItem key={cat} value={cat}>
@@ -120,15 +183,16 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
               ))}
             </Select>
           </FormControl>
-        </div>
+        </Box>
 
-        <div className="mb-4">
+        <Box mb={2}>
           <FormControl fullWidth>
             <InputLabel>Payment Method</InputLabel>
             <Select
               name="method"
               value={formData.method}
               onChange={handleChange}
+              label="Payment Method"
             >
               {paymentMethods.map((method) => (
                 <MenuItem key={method} value={method}>
@@ -137,14 +201,25 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
               ))}
             </Select>
           </FormControl>
-        </div>
+        </Box>
       </DialogContent>
 
-      <DialogActions className="px-6 pb-4 m-4">
+      {/* Footer */}
+      <DialogActions sx={{ px: 4, pb: 3 }}>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          className="bg-blue-600 text-white"
+          fullWidth
+          sx={{
+            backgroundColor: "#E07A5F",
+            color: "#fff",
+            textTransform: "none",
+            fontWeight: "bold",
+            borderRadius: 2,
+            "&:hover": {
+              backgroundColor: "#D45C47",
+            },
+          }}
         >
           Update Record
         </Button>
