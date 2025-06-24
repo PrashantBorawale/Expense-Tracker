@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node --max-old-space-size=4096 node_modules/vite/bin/vite.js build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,10 +14,13 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
+    "@mui/system": "^7.1.1",
     "@mui/x-date-pickers": "^8.5.3",
     "@tailwindcss/vite": "^4.1.10",
     "axios": "^1.10.0",
+    "cookie": "^1.0.2",
     "dayjs": "^1.11.13",
+    "lucide-react": "^0.523.0",
     "react": "^19.1.0",
     "react-calendar": "^6.0.0",
     "react-dom": "^19.1.0",
