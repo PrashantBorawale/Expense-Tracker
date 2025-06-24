@@ -56,7 +56,7 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/expenses/add",
+        `${import.meta.env.VITE_API_BASE_URL}/api/expenses/add`,
         {
           discription: desc,
           amount: finalAmount,
