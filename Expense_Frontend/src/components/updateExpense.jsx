@@ -73,7 +73,7 @@ const UpdateExpenses = ({ open, onClose, initialData, onUpdate }) => {
 
     try {
       const res = await axios.put(
-        `${import.meta.env.VITE_API_BASE_URL}/api/expenses/${initialData._id}`,
+        `http://localhost:3000/api/expenses/${initialData._id}`,
         {
           discription: desc,
           amount: finalAmount,

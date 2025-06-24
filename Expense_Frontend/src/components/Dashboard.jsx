@@ -63,14 +63,11 @@ const Dashboard = () => {
 
   const fetchExpenses = useCallback(async () => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/api/customer`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await axios.get(`http://localhost:3000/api/customer`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setExpenses(res.data);
     } catch (err) {
       toast.error("Failed to fetch expenses.", err);
@@ -99,7 +96,7 @@ const Dashboard = () => {
   const handleConfirmDelete = async () => {
     try {
       await axios.delete(
-        `${import.meta.env.VITE_API_BASE_URL}/api/expenses/${deleteExpenseId}`,
+        `http://localhost:3000/api/expenses/${deleteExpenseId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
