@@ -55,7 +55,7 @@ const Register = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:3000/api/user/register`,
+        `https://expense-tracker-ozll.onrender.com/api/user/register`,
         formData
       );
 

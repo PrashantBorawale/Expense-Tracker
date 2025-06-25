@@ -56,7 +56,7 @@ const UserExpenses = ({ open, onClose, onAdd }) => {
 
     try {
       const res = await axios.post(
-        `http://localhost:3000/api/expenses/add`,
+        `https://expense-tracker-ozll.onrender.com/api/expenses/add`,
         {
           discription: desc,
           amount: finalAmount,
