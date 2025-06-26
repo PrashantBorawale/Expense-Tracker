@@ -17,6 +17,7 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Register = () => {
@@ -87,6 +88,8 @@ const Register = () => {
 
       localStorage.setItem("token", token);
       localStorage.setItem("userName", user.name);
+
+      toast.success("Registration successful!");
 
       setFormData({ name: "", email: "", password: "" });
       setTimeout(() => navigate("/login"), 1500);
