@@ -17,8 +17,8 @@ import {
   Visibility,
   VisibilityOff,
 } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
 const Login = () => {
@@ -30,6 +30,11 @@ const Login = () => {
     remember: false,
   });
 
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -39,6 +44,7 @@ const Login = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleTogglePassword = () => {
@@ -48,6 +54,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrors({ email: "", password: "" });
 
     try {
       const response = await axios.post(
@@ -61,9 +68,15 @@ const Login = () => {
       const { message, user, token } = response.data;
 
       if (message.toLowerCase().includes("not found")) {
-        toast.error("User does not exist");
+        setErrors((prev) => ({
+          ...prev,
+          email: "User does not exist",
+        }));
       } else if (message.toLowerCase().includes("invalid")) {
-        toast.error("Incorrect password");
+        setErrors((prev) => ({
+          ...prev,
+          password: "Incorrect password",
+        }));
       } else {
         localStorage.setItem("token", token);
         localStorage.setItem("userName", user?.name || "User");
@@ -74,7 +87,7 @@ const Login = () => {
 
         setTimeout(() => {
           navigate("/dashboard");
-        }, 1500);
+        }, 500);
       }
     } catch (err) {
       toast.error("Login failed. Please try again.");
@@ -90,7 +103,6 @@ const Login = () => {
         elevation={8}
         className="p-0 rounded-2xl w-full max-w-md overflow-hidden"
       >
-        {/* Heading with theme color */}
         <Box
           sx={{
             backgroundColor: "#E07A5F",
@@ -103,7 +115,6 @@ const Login = () => {
           </Typography>
         </Box>
 
-        {/* Form */}
         <Box component="form" onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center mb-4">
             <EmailIcon sx={{ color: "#E07A5F", mr: 1.5 }} />
@@ -116,6 +127,8 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               required
+              error={!!errors.email}
+              helperText={errors.email}
             />
           </div>
 
@@ -130,6 +143,8 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               required
+              error={!!errors.password}
+              helperText={errors.password}
               InputProps={{
                 endAdornment: (
                   <IconButton onClick={handleTogglePassword} edge="end">

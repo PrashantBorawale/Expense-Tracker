@@ -17,7 +17,6 @@ import {
   VisibilityOff,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const Register = () => {
@@ -29,13 +28,21 @@ const Register = () => {
     password: "",
   });
 
+  const [errors, setErrors] = useState({
+    email: "",
+    password: "",
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Ensure form fields are empty when component mounts
     setFormData({
       name: "",
+      email: "",
+      password: "",
+    });
+    setErrors({
       email: "",
       password: "",
     });
@@ -43,19 +50,36 @@ const Register = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({ ...errors, [e.target.name]: "" });
   };
 
   const handleTogglePassword = () => {
-    setShowPassword(!showPassword);
+    setShowPassword((prev) => !prev);
+  };
+
+  const validatePassword = (password) => {
+    const regex = /^(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{6,}$/;
+    return regex.test(password);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrors({ email: "", password: "" });
+
+    if (!validatePassword(formData.password)) {
+      setErrors((prev) => ({
+        ...prev,
+        password:
+          "Password must be at least 6 characters, include one capital letter and one symbol.",
+      }));
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await axios.post(
-        `https://expense-tracker-ozll.onrender.com/api/user/register`,
+        "https://expense-tracker-ozll.onrender.com/api/user/register",
         formData
       );
 
@@ -64,14 +88,19 @@ const Register = () => {
       localStorage.setItem("token", token);
       localStorage.setItem("userName", user.name);
 
-      toast.success("Registration successful!");
       setFormData({ name: "", email: "", password: "" });
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       if (err.response && err.response.status === 409) {
-        toast.error("User already exists");
+        setErrors((prev) => ({
+          ...prev,
+          email: "User already exists",
+        }));
       } else {
-        toast.error("Something went wrong. Please try again.");
+        setErrors((prev) => ({
+          ...prev,
+          email: "User E-mail already exists",
+        }));
         console.error(err);
       }
     } finally {
@@ -117,7 +146,7 @@ const Register = () => {
             />
           </div>
 
-          <div className="flex items-center mb-4">
+          <div className="flex items-center mb-1">
             <EmailIcon sx={{ color: "#E07A5F", marginRight: "10px" }} />
             <TextField
               name="email"
@@ -127,11 +156,13 @@ const Register = () => {
               fullWidth
               value={formData.email}
               onChange={handleChange}
+              error={!!errors.email}
+              helperText={errors.email}
               required
             />
           </div>
 
-          <div className="flex items-center mb-6">
+          <div className="flex items-center mb-6 mt-3">
             <LockIcon sx={{ color: "#E07A5F", marginRight: "10px" }} />
             <TextField
               name="password"
@@ -141,6 +172,8 @@ const Register = () => {
               fullWidth
               value={formData.password}
               onChange={handleChange}
+              error={!!errors.password}
+              helperText={errors.password}
               required
               InputProps={{
                 endAdornment: (
